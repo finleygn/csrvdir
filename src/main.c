@@ -36,7 +36,7 @@ struct RequestHandler
     unsigned int client_address_size;
 };
 
-struct RequestHandler create_request_handler()
+struct RequestHandler create_request_handler(void)
 {
     struct RequestHandler request_handler;
 

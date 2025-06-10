@@ -4,8 +4,8 @@ SOURCE_DIR=src
 CC=cc
 CFLAGS=-std=c99 -pedantic -Wall -Wextra -Os
 
-DEPS = src/logging.h src/request.h
-OBJ = src/main.o src/logging.o
+DEPS = src/logging.h src/socket.h src/util.h
+OBJ = src/main.o src/socket.o src/util.o
 
 # Compile src files to individual object
 $(SOURCE_DIR)/%.o: $(SOURCE_DIR)/%.c $(DEPS)
