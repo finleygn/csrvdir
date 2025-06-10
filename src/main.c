@@ -132,6 +132,9 @@ void socket_request_handler(int socket) {
 
         char relative_path[PATH_MAX];
         eat_path(&request_handler.scanner, relative_path);
+        if(strlen(relative_path) == 1 && relative_path[0] == '/') {
+            strncpy(relative_path, "/index.html", sizeof "/index.html");
+        }
 
         char system_path[PATH_MAX];
         strcpy(system_path, ".");
