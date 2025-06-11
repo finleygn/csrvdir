@@ -2,7 +2,7 @@
 
 void print_startup_info(unsigned int port)
 {
-    char* template =
+    const char* template =
         "Server started on port %d\n"
         "Hosting on: http://127.0.0.1:%d\n";
     printf(template, port, port);

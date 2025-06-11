@@ -33,7 +33,7 @@ int setup_bind_and_listen(unsigned int port) {
 
     bind_socket(sck, port);
 
-    if(listen(sck, 1) < 0) {
+    if(listen(sck, 128) < 0) {
         error("Cannot listen to address.");
     }
 
