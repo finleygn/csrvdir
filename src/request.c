@@ -1,41 +1,26 @@
-//
-// Created by Finley Garton on 11/06/2025.
-//
-
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/syslimits.h>
 #include "request.h"
-#include "response.h"
+#include "common.h"
 
-#include <string.h>
 #include <unistd.h>
-#include <sys/errno.h>
+#include <string.h>
 
 #define MAX_METHOD_LENGTH 3
 
-int chrs_until_whitespace(const char* buffer, int max_length)
+enum ResponseStatus read_first_line(const int conn_fd, char* out_buffer, const unsigned int buffer_size)
 {
-    for(int i = 0; i <= max_length; i++) {
-        if (buffer[i] == ' ' || buffer[i] == '\0' || buffer[i] == '\r' || buffer[i] == '\n') {
-            return i;
-        }
-    }
-    return -1;
-}
-
-enum ResponseStatus read_first_line(int conn_fd, char* buffer, int buffer_size)
-{
-    int bytes_total = 0;
-    int bytes_read = 0;
+    ssize_t bytes_total = 0;
+    ssize_t bytes_read = 0;
 
     while (bytes_total < buffer_size - 1) {
-        bytes_read = recv(conn_fd, &buffer[bytes_total], buffer_size - bytes_total - 1, 0);
+        bytes_read = recv(conn_fd, &out_buffer[bytes_total], buffer_size - bytes_total - 1, 0);
 
         if (bytes_read > 0) {
-            buffer[bytes_read + bytes_total] = '\0';
+            out_buffer[bytes_read + bytes_total] = '\0';
 
-            char *newline = strchr(&buffer[bytes_total], '\n');
+            char *newline = strchr(&out_buffer[bytes_total], '\n');
             if (newline != NULL) {
                 *newline = '\0';
                 return STATUS_OK;
@@ -52,38 +37,68 @@ enum ResponseStatus read_first_line(int conn_fd, char* buffer, int buffer_size)
     return STATUS_REQUEST_TOO_LARGE;
 }
 
-enum ResponseStatus stream_parse_request(int conn_fd, struct Request* request)
-{
-    char buffer[PATH_MAX + MAX_METHOD_LENGTH + 1];
+int request_extract_method(const char* buffer, enum RequestMethod* out_method) {
+    if (strncmp(buffer, "GET ", 4) == 0) {
+        *out_method = METHOD_GET;
+        return 4;
+    }
 
-    enum ResponseStatus status;
-    if ((status = read_first_line(conn_fd, buffer, sizeof buffer)) != STATUS_OK) {
+    return -1;
+}
+
+int request_extract_path(const char* buffer, const unsigned int max_path_length) {
+    if (buffer[0] != '/') {
+        return -1;
+    }
+
+    for(int i = 0; i <= max_path_length; i++) {
+        switch (buffer[i]) {
+            case ' ':
+            case '\n':
+            case '\r':
+                return i;
+            case '\0':
+                return -1;
+            default:
+                continue;
+        }
+    }
+
+    return -1;
+}
+
+enum ResponseStatus request_ingest(const int conn_fd, struct Request* request, const unsigned int max_path_length)
+{
+    char line_buf[max_path_length + MAX_METHOD_LENGTH + 1];
+
+    enum ResponseStatus status = read_first_line(
+        conn_fd,
+        line_buf,
+        sizeof line_buf
+    );
+
+    if (status != STATUS_OK) {
         return status;
     }
 
-    int method_size = chrs_until_whitespace(buffer, MAX_METHOD_LENGTH);
-    if (method_size < 0) {
-        return STATUS_BAD_REQUEST;
-    }
-
-    if (strncmp(buffer, "GET ", method_size + 1) != 0) {
+    // Extract Method
+    enum RequestMethod method;
+    int method_offset = request_extract_method(line_buf, &method);
+    if (method_offset < 0) {
         return STATUS_METHOD_NOT_ALLOWED;
     }
 
-    char* path_start = buffer + method_size + 1;
-    int path_size = chrs_until_whitespace(path_start, sizeof buffer);
-    path_start[path_size] = '\0';
-
-    if (path_size < 0) {
+    // Extract Path
+    char* path = line_buf + method_offset;
+    int path_offset = request_extract_path(path, max_path_length);
+    if (path_offset < 0) {
         return STATUS_BAD_REQUEST;
     }
 
-    request->method = METHOD_GET;
-    if (path_size == 1 && path_start[0] == '/') {
-        strncpy(request->path, "/index.html", sizeof "/index.html"+1);
-    } else {
-        strncpy(request->path, path_start, path_size+1);
-    }
+    // Build Request
+    request->method = method;
+    strncpy(request->path, path, path_offset);
+    request->path[path_offset] = '\0';
 
     return STATUS_OK;
 }

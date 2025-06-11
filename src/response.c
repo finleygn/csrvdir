@@ -1,10 +1,11 @@
 #ifndef RESPONSE_H
 #define RESPONSE_H
 
-#include "response.h"
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
+#include "response.h"
+#include "common.h"
 
 const char* response_status_strings[] = {
     [STATUS_OK]                    = "OK",

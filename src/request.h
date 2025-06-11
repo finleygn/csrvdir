@@ -1,18 +1,17 @@
 #ifndef _REQUEST_H_
 #define _REQUEST_H_
 #include <sys/syslimits.h>
-
-const enum RequestMethod {
-    METHOD_GET
-};
+#include "common.h"
 
 struct Request {
     enum RequestMethod method;
     char path[PATH_MAX];
 };
 
-enum ResponseStatus stream_parse_request(
+enum ResponseStatus request_ingest(
     int conn_fd,
-    struct Request* request
+    struct Request* request,
+    unsigned int max_path_length
 );
+
 #endif

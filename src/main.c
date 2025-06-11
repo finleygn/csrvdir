@@ -11,8 +11,6 @@
 
 #define PORT 8006
 
-// REQUEST WORKER
-
 struct ConnectionDetails {
     int fd;
     struct sockaddr_in client_addr;
@@ -23,9 +21,13 @@ struct RequestWorker {
     struct ConnectionDetails conn;
 };
 
-void do_request_work(struct RequestWorker* rw) {
+void process_request(
+    struct RequestWorker* rw,
+    char* cwd,
+    unsigned int cwd_size
+) {
     struct Request request;
-    enum ResponseStatus status = stream_parse_request(rw->conn.fd, &request);
+    enum ResponseStatus status = request_ingest(rw->conn.fd, &request, PATH_MAX - cwd_size);
 
     if (status != STATUS_OK) {
         http_reply(rw->conn.fd, status);
@@ -37,22 +39,33 @@ void do_request_work(struct RequestWorker* rw) {
         return;
     }
 
-    // TODO: Fix security issue.
+    char local_path[PATH_MAX];
     char system_path[PATH_MAX];
-    snprintf(system_path, sizeof system_path, ".%s", request.path);
+    snprintf(local_path, sizeof local_path, ".%s", request.path);
+    realpath(local_path, system_path);
 
-    printf("%s\n", system_path);
-    FILE* file = fopen(system_path, "rb");
+    if (strncmp(system_path, cwd, cwd_size) == 0) {
 
-    if (file) {
-        http_reply_serve(rw->conn.fd, file);
+        FILE* file = fopen(system_path, "rb");
+
+        if (file) {
+            http_reply_serve(rw->conn.fd, file);
+        } else {
+            http_reply(rw->conn.fd, STATUS_NOT_FOUND);
+        }
+
     } else {
         http_reply(rw->conn.fd, STATUS_NOT_FOUND);
     }
 }
 
 void accept_connections(int socket_fd) {
+    // TODO: Create a pool of workers with their own threads ready
     struct RequestWorker request_worker;
+
+    char cwd[PATH_MAX];
+    getcwd(cwd, PATH_MAX);
+    unsigned int cwd_size = strlen(cwd);
 
     while(1) {
         int client_fd = accept(
@@ -71,7 +84,7 @@ void accept_connections(int socket_fd) {
         printf("Accepted connection.\n");
 
         request_worker.conn.fd = client_fd;
-        do_request_work(&request_worker);
+        process_request(&request_worker, cwd, cwd_size);
         close(request_worker.conn.fd);
     }
 }
