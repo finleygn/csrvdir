@@ -15,4 +15,15 @@ enum ResponseStatus {
     STATUS_INTERNAL_SERVER_ERROR = 500,
 };
 
+static const struct { char *ex; char *value; } mime_types[] = {
+  { "html",  "text/html; charset=utf-8" },
+  { "css",   "text/css; charset=utf-8" },
+  { "js",    "application/javascript" },
+  { "png",   "image/png" },
+  { "gif",   "image/gif" },
+  { "jpeg",  "image/jpg" },
+  { "jpg",   "image/jpg" },
+  { "webp",  "image/webp" },
+};
+
 #endif //COMMON_H

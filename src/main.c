@@ -27,6 +27,7 @@ void process_request(
     unsigned int cwd_size
 ) {
     struct Request request;
+
     enum ResponseStatus status = request_ingest(rw->conn.fd, &request, PATH_MAX - cwd_size);
 
     if (status != STATUS_OK) {
@@ -45,11 +46,21 @@ void process_request(
     realpath(local_path, system_path);
 
     if (strncmp(system_path, cwd, cwd_size) == 0) {
-
         FILE* file = fopen(system_path, "rb");
 
+        // Get file type from name
+        char* file_type = system_path + sizeof system_path;
+        while (*(file_type - 1) != '.' && file_type >= system_path) {
+            *file_type--;
+
+            if (*file_type == '/') {
+                file_type = NULL;
+                break;
+            }
+        }
+
         if (file) {
-            http_reply_serve(rw->conn.fd, file);
+            http_reply_serve(rw->conn.fd, file, file_type);
         } else {
             http_reply(rw->conn.fd, STATUS_NOT_FOUND);
         }
@@ -80,8 +91,6 @@ void accept_connections(int socket_fd) {
             close(request_worker.conn.fd);
             continue;
         }
-
-        printf("Accepted connection.\n");
 
         request_worker.conn.fd = client_fd;
         process_request(&request_worker, cwd, cwd_size);
